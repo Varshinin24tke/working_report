@@ -1,8 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { useSearchParams } from 'next/navigation';
 import 'leaflet/dist/leaflet.css';
 
 const MapClient = dynamic(() => import('./MapClient'), { ssr: false });
@@ -13,8 +12,14 @@ const ReportPage = () => {
   const [searchError, setSearchError] = useState('');
   const [description, setDescription] = useState('');
   const [submitMessage, setSubmitMessage] = useState('');
-  const searchParams = useSearchParams();
-  const userId = searchParams.get('userid');
+  const [submitting, setSubmitting] = useState(false);
+  const [userId, setUserId] = useState('');
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('userid');
+    if (id) setUserId(id);
+  }, []);
 
   const handleSearch = async () => {
     if (!searchQuery) return;
@@ -29,11 +34,11 @@ const ReportPage = () => {
         setSelectedLocation({ lat: parseFloat(lat), lng: parseFloat(lon) });
         setSearchError('');
       } else {
-        setSearchError('❌ Location not found.');
+        setSearchError('Location not found.');
       }
     } catch (err) {
       console.error(err);
-      setSearchError('❌ Search failed.');
+      setSearchError('Search failed.');
     }
   };
 
@@ -47,17 +52,17 @@ const ReportPage = () => {
         },
         (err) => {
           console.error(err);
-          setSearchError('❌ Failed to access your location.');
+          setSearchError('Failed to access your location.');
         }
       );
     } else {
-      setSearchError('❌ Geolocation not supported.');
+      setSearchError('Geolocation not supported.');
     }
   };
 
   const handleSubmit = async () => {
     if (!userId || !description || !selectedLocation) {
-      setSubmitMessage('❌ Please fill all fields and allow location.');
+      setSubmitMessage('Please fill all fields and allow location.');
       return;
     }
 
@@ -69,6 +74,7 @@ const ReportPage = () => {
     };
 
     try {
+      setSubmitting(true);
       const response = await fetch('https://yashdb18-hersafety.hf.space/app/save_review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -76,20 +82,22 @@ const ReportPage = () => {
       });
 
       if (response.ok) {
-        setSubmitMessage('✅ Report submitted successfully!');
+        setSubmitMessage('Report submitted successfully.');
         setDescription('');
       } else {
-        setSubmitMessage('❌ Failed to submit the report.');
+        setSubmitMessage('Failed to submit the report.');
       }
     } catch (error) {
       console.error(error);
-      setSubmitMessage('❌ An error occurred during submission.');
+      setSubmitMessage('An error occurred during submission.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-white text-gray-900 p-4 md:p-6 max-w-xl mx-auto">
-      <h1 className="text-2xl md:text-3xl font-bold mb-4 text-pink-600">📍 Report a Place</h1>
+      <h1 className="text-2xl md:text-3xl font-bold mb-4 text-pink-600">Report a Place</h1>
 
       <div className="flex flex-col sm:flex-row gap-2 mb-2">
         <input
@@ -113,7 +121,7 @@ const ReportPage = () => {
         className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded mb-4 w-full"
         onClick={handleUseMyLocation}
       >
-        📍 Use My Location
+        Use My Location
       </button>
 
       <MapClient
@@ -123,7 +131,7 @@ const ReportPage = () => {
 
       {selectedLocation && (
         <p className="text-green-600 font-medium mt-2">
-          📌 Selected Location: {selectedLocation.lat.toFixed(5)}, {selectedLocation.lng.toFixed(5)}
+          Selected Location: {selectedLocation.lat.toFixed(5)}, {selectedLocation.lng.toFixed(5)}
         </p>
       )}
 
@@ -139,14 +147,26 @@ const ReportPage = () => {
           />
         </div>
 
-        <button
-          className="bg-pink-600 hover:bg-pink-700 text-white font-semibold py-2 px-4 rounded w-full"
-          onClick={handleSubmit}
-        >
-          🚨 Submit Report
-        </button>
+        <div className="flex items-center justify-between gap-4">
+          <button
+            className="bg-pink-600 hover:bg-pink-700 text-white font-semibold py-2 px-4 rounded w-full"
+            onClick={handleSubmit}
+            disabled={submitting}
+          >
+            Submit Report
+          </button>
+          {submitting && <span className="text-gray-600 text-sm">Submitting...</span>}
+        </div>
 
-        {submitMessage && <p className="text-sm font-medium mt-2">{submitMessage}</p>}
+        {submitMessage && (
+          <p
+            className={`text-sm font-medium mt-2 ${
+              submitMessage.startsWith('Report') ? 'text-green-600' : 'text-red-600'
+            }`}
+          >
+            {submitMessage}
+          </p>
+        )}
       </div>
     </div>
   );
